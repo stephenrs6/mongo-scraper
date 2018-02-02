@@ -64,7 +64,7 @@ if(process.env.MONGODB_URI) {
   });
   
   // A GET request to scrape the echojs website
-  app.post("/scrape", function(req, res) {
+  app.get("/scrape", function(req, res) {
     // First, we grab the body of the html with request
     request("https://www.nytimes.com/", function(error, response, html) {
       // Then, we load that into cheerio and save it to $ for a shorthand selector
@@ -117,26 +117,7 @@ if(process.env.MONGODB_URI) {
       }
     });
   });
-  
-  // Grab an article by it's ObjectId
-  app.get("/articles/:id", function(req, res) {
-    // Using the id passed in the id parameter, prepare a query that finds the matching one in our db...
-    db.Article.findOne({ "_id": req.params.id })
-    // ..and populate all of the notes associated with it
-    .populate("note")
-    // now, execute our query
-    .exec(function(error, doc) {
-      // Log any errors
-      if (error) {
-        console.log(error);
-      }
-      // Otherwise, send the doc to the browser as a json object
-      else {
-        res.json(doc);
-      }
-    });
-  });
-  
+
   
   // Save an article
   app.post("/articles/save/:id", function(req, res) {

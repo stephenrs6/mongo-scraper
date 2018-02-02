@@ -30,14 +30,14 @@
         {{#if article}} {{#each article}}
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h4><a href="/articles/{{this._id}}">{{this.title}}</a></h4>
+                <h4>{{this.title}}</h4>
             </div>
             <div class="panel-body">
                 <p> {{this.summary}}</p>
                 <a href={{this.link}} target="_blank">{{this.link}}</a>
                 <br>
                 <br>
-                <button type="button" class="btn btn-success save" data-id={{this._id}}>Save Article</button>
+                <button type="button" class="btn btn-success save" id="save" data-id={{this._id}}>Save Article</button>
             </div>
         </div>
         {{/each}} {{else}}
