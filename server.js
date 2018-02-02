@@ -1,42 +1,51 @@
 var express = require("express");
-var exphbrs = require("express-handlebars");
+var exphbs = require("express-handlebars");
 var mongoose = require("mongoose");
 var bodyParser = require("body-parser");
 var cheerio = require("cheerio");
 var request = require("request");
+var logger = require("morgan");
 
+// Require all models
+var db = require("./models");
 
+var PORT = process.env.PORT || 8080;
+
+// Initialize Express
+var app = express();
+
+app.engine('handlebars', exphbs({defaultLayout: 'main'}));
+app.set('view engine', 'handlebars');
+
+// Configure middleware
+
+// Use morgan logger for logging requests
+app.use(logger("dev"));
+// Use body-parser for handling form submissions
+app.use(bodyParser.urlencoded({ extended: true }));
+// Use express.static to serve the public folder as a static directory
+app.use(express.static("public"));
+
+// By default mongoose uses callbacks for async queries, we're setting it to use promises (.then syntax) instead
+// Connect to the Mongo DB
 // If deployed, use the deployed database. Otherwise use the local mongoHeadlines database
 var MONGODB_URI = process.env.MONGODB_URI || "ds121268.mlab.com:21268/heroku_gcplfnw8";
-
-// Set mongoose to leverage built in JavaScript ES6 Promises
 // Connect to the Mongo DB
 mongoose.Promise = Promise;
-mongoose.connect(MONGODB_URI, {
-  useMongoClient: true
-});
-
-
-
-
-
-
-// Show any mongoose errors
-db.on("error", function(error) {
-    console.log("Mongoose Error: ", error);
+if(process.env.MONGODB_URI) {
+  mongoose.connect(process.env.MONGODB_URI, {
   });
-  
-  // Once logged in to the db through mongoose, log a success message
-  db.once("open", function() {
-    console.log("Mongoose connection successful.");
-  });
+} else {
+  mongoose.connect("mongodb://localhost/sessionDB", {
+        });
+}
   
   // Routes
   // ======
   
   //GET requests to render Handlebars pages
   app.get("/", function(req, res) {
-    Article.find({"saved": false}, function(error, data) {
+    db.Article.find({"saved": false}, function(error, data) {
       var hbsObject = {
         article: data
       };
@@ -46,7 +55,7 @@ db.on("error", function(error) {
   });
   
   app.get("/saved", function(req, res) {
-    Article.find({"saved": true}).populate("notes").exec(function(error, articles) {
+    db.Article.find({"saved": true}).populate("notes").exec(function(error, articles) {
       var hbsObject = {
         article: articles
       };
@@ -55,7 +64,7 @@ db.on("error", function(error) {
   });
   
   // A GET request to scrape the echojs website
-  app.get("/scrape", function(req, res) {
+  app.post("/scrape", function(req, res) {
     // First, we grab the body of the html with request
     request("https://www.nytimes.com/", function(error, response, html) {
       // Then, we load that into cheerio and save it to $ for a shorthand selector
@@ -73,8 +82,8 @@ db.on("error", function(error) {
   
         // Using our Article model, create a new entry
         // This effectively passes the result object to the entry (and the title and link)
-        var entry = new Article(result);
-  
+        var entry = new db.Article(result);
+        
         // Now, save that entry to the db
         entry.save(function(err, doc) {
           // Log any errors
@@ -97,7 +106,7 @@ db.on("error", function(error) {
   // This will get the articles we scraped from the mongoDB
   app.get("/articles", function(req, res) {
     // Grab every doc in the Articles array
-    Article.find({}, function(error, doc) {
+    db.Article.find({}, function(error, doc) {
       // Log any errors
       if (error) {
         console.log(error);
@@ -112,7 +121,7 @@ db.on("error", function(error) {
   // Grab an article by it's ObjectId
   app.get("/articles/:id", function(req, res) {
     // Using the id passed in the id parameter, prepare a query that finds the matching one in our db...
-    Article.findOne({ "_id": req.params.id })
+    db.Article.findOne({ "_id": req.params.id })
     // ..and populate all of the notes associated with it
     .populate("note")
     // now, execute our query
@@ -132,7 +141,7 @@ db.on("error", function(error) {
   // Save an article
   app.post("/articles/save/:id", function(req, res) {
         // Use the article id to find and update its saved boolean
-        Article.findOneAndUpdate({ "_id": req.params.id }, { "saved": true})
+        db.Article.findOneAndUpdate({ "_id": req.params.id }, { "saved": true})
         // Execute the above query
         .exec(function(err, doc) {
           // Log any errors
@@ -149,7 +158,7 @@ db.on("error", function(error) {
   // Delete an article
   app.post("/articles/delete/:id", function(req, res) {
         // Use the article id to find and update its saved boolean
-        Article.findOneAndUpdate({ "_id": req.params.id }, {"saved": false, "notes": []})
+        db.Article.findOneAndUpdate({ "_id": req.params.id }, {"saved": false, "notes": []})
         // Execute the above query
         .exec(function(err, doc) {
           // Log any errors
@@ -181,7 +190,7 @@ db.on("error", function(error) {
       // Otherwise
       else {
         // Use the article id to find and update it's notes
-        Article.findOneAndUpdate({ "_id": req.params.id }, {$push: { "notes": note } })
+        db.Article.findOneAndUpdate({ "_id": req.params.id }, {$push: { "notes": note } })
         // Execute the above query
         .exec(function(err) {
           // Log any errors
@@ -208,7 +217,7 @@ db.on("error", function(error) {
         res.send(err);
       }
       else {
-        Article.findOneAndUpdate({ "_id": req.params.article_id }, {$pull: {"notes": req.params.note_id}})
+        db.Article.findOneAndUpdate({ "_id": req.params.article_id }, {$pull: {"notes": req.params.note_id}})
          // Execute the above query
           .exec(function(err) {
             // Log any errors
@@ -226,7 +235,7 @@ db.on("error", function(error) {
   });
   
   // Listen on port
-  app.listen(port, function() {
-    console.log("App running on port " + port);
+  app.listen(PORT, function() {
+    console.log("App running on port " + PORT);
   });
   
